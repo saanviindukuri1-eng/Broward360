@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Broward360 | Community Help Hub</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="top-bar">
+        <a class="brand" href="#home" aria-label="Broward360 home">
+            <span class="brand-icon">360</span>
+            <span>Broward<span class="brand-highlight">360</span></span>
+        </a>
+        <nav aria-label="Main navigation">
+            <a href="#report">Report a Problem</a>
+            <a href="#scam-checker">Scam Checker</a>
+            <a href="#digital-safety">Safety Coach</a>
+            <a href="#letter-explainer">Letter Explainer</a>
+            <a href="#recycle">Recycle Helper</a>
+            <a href="#food">Food Help</a>
+        </nav>
+    </header>
+
+    <main id="home">
+        <section class="hero">
+            <div class="hero-text">
+                <p class="eyebrow">LOCAL ACTION. STRONGER COMMUNITY.</p>
+                <h1>Small actions.<br><span>Big community impact.</span></h1>
+                <p class="hero-description">
+                    One simple place to report neighborhood problems, check suspicious messages, understand confusing letters,
+                    learn what to recycle, and find food assistance in Broward County.
+                </p>
+                <a class="primary-button" href="#services">Explore Broward360 <span aria-hidden="true">↓</span></a>
+                <p class="prototype-note">Student-built prototype · Not an official county service</p>
+            </div>
+            <div class="hero-art" aria-hidden="true">
+                <div class="sun"></div>
+                <div class="hill hill-back"></div>
+                <div class="hill hill-front"></div>
+                <div class="house">⌂</div>
+                <div class="hero-stats">
+                    <span class="stat-number">7</span>
+                    <span>community tools<br>in one place</span>
+                </div>
+            </div>
+        </section>
+
+        <section id="services" class="section">
+            <div class="section-heading">
+                <p class="eyebrow">HOW WE CAN HELP</p>
+                <h2>Choose what you need</h2>
+                <p>Designed around everyday challenges in our community.</p>
+            </div>
+            <div class="service-grid">
+                <a class="service-card" href="#report">
+                    <span class="service-icon">🛠️</span>
+                    <h3>Report a Local Problem</h3>
+                    <p>Document flooding, potholes, broken sidewalks, missing signs, and other infrastructure issues.</p>
+                    <span class="card-link">Make a report →</span>
+                </a>
+                <a class="service-card" href="#scam-checker">
+                    <span class="service-icon">🔎</span>
+                    <h3>Check a Suspicious Message</h3>
+                    <p>Upload a screenshot or paste a message to look for common scam warning signs.</p>
+                    <span class="card-link">Check a message →</span>
+                </a>
+                <a class="service-card" href="#letter-explainer">
+                    <span class="service-icon">📄</span>
+                    <h3>Understand a Bill or Letter</h3>
+                    <p>Extract text from a photo and spot possible deadlines, amounts, and next steps.</p>
+                    <span class="card-link">Explain a document →</span>
+                </a>
+                <a class="service-card" href="#recycle">
+                    <span class="service-icon">♻️</span>
+                    <h3>Recycle Helper</h3>
+                    <p>Look up common items and learn how to sort them more responsibly.</p>
+                    <span class="card-link">Check an item →</span>
+                </a>
+                <a class="service-card" href="#food">
+                    <span class="service-icon">🍎</span>
+                    <h3>Find Food Help</h3>
+                    <p>Start with food assistance resources and their official websites.</p>
+                    <span class="card-link">View resources →</span>
+                </a>
+            </div>
+        </section>
+
+        <section id="report" class="section split-section">
+            <div class="section-heading left-heading">
+                <p class="eyebrow">TOOL 01 · NEIGHBORHOOD REPORTING</p>
+                <h2>Notice a problem? Document it.</h2>
+                <p>Report flooding, potholes, damaged sidewalks, broken streetlights, blocked drains, damaged bus stops, missing signs, or problems in public spaces.</p>
+                <div class="notice">⚠️ This demo saves reports only in this browser. It does not notify the county or other residents. Do not enter a dangerous area to take a photo. For an immediate emergency, call 911.</div>
+            </div>
+            <form id="flood-form" class="panel">
+                <label for="problem-type">What kind of problem is it?</label>
+                <select id="problem-type" name="problemType" required>
+                    <option value="Flooding or blocked drain">Flooding or blocked drain</option>
+                    <option value="Pothole or damaged road">Pothole or damaged road</option>
+                    <option value="Broken or missing sidewalk">Broken or missing sidewalk</option>
+                    <option value="Streetlight or traffic sign">Streetlight or traffic sign</option>
+                    <option value="Bus stop or pedestrian crossing">Bus stop or pedestrian crossing</option>
+                    <option value="Park or public space">Park or public space</option>
+                    <option value="Other infrastructure problem">Other infrastructure problem</option>
+                </select>
+
+                <label for="location">Location or nearest intersection</label>
+                <input id="location" name="location" type="text" placeholder="Example: Main Street near the library" required maxlength="160">
+
+                <label for="severity">How serious does it seem?</label>
+                <select id="severity" name="severity">
+                    <option value="Low">Low — inconvenient, but passable</option>
+                    <option value="Moderate" selected>Moderate — may be difficult or unsafe</option>
+                    <option value="High">High — serious hazard</option>
+                </select>
+
+                <label for="details">What did you notice?</label>
+                <textarea id="details" name="details" placeholder="Describe the problem..." required maxlength="600" rows="4"></textarea>
+
+                <button class="primary-button" type="submit">Save demo report</button>
+                <p id="flood-message" class="form-message" role="status"></p>
+            </form>
+            <div class="reports-area">
+                <div class="reports-title">
+                    <h3>Saved demo reports on this device</h3>
+                    <button id="refresh-reports" class="text-button" type="button">Refresh</button>
+                </div>
+                <div id="reports-list" class="reports-list">
+                    <p class="muted">Loading reports…</p>
+                </div>
+                <button id="clear-reports" class="text-button clear-button" type="button">Clear saved demo reports</button>
+            </div>
+        </section>
+
+        <section id="scam-checker" class="section scam-section">
+            <div class="section-heading">
+                <p class="eyebrow">TOOL 02 · DIGITAL SAFETY</p>
+                <h2>Not sure if a message is real?</h2>
+                <p>Help older adults and other residents spot common warning signs in suspicious texts and emails.</p>
+            </div>
+            <div class="scam-layout">
+                <div class="panel scam-panel">
+                    <label for="scam-image">Option 1: Add a screenshot or photo</label>
+                    <input id="scam-image" type="file" accept="image/*">
+                    <p class="small-note">The image is processed in this browser by text-recognition software. For best results, use a clear screenshot with readable text.</p>
+                    <div id="image-preview-wrap" class="image-preview-wrap" hidden>
+                        <img id="scam-image-preview" alt="Preview of the selected message image">
+                    </div>
+                    <button id="read-image-button" class="secondary-button" type="button" disabled>Read text from image</button>
+                    <p id="ocr-status" class="form-message" role="status"></p>
+
+                    <label for="scam-text">Option 2: Paste or type the message</label>
+                    <textarea id="scam-text" rows="7" maxlength="8000" placeholder="Paste the text of the email or message here. Remove personal information first."></textarea>
+                    <button id="check-scam-button" class="primary-button" type="button">Check warning signs</button>
+                    <p class="small-note">Privacy tip: remove names, addresses, account numbers, verification codes, and other private details before checking a message.</p>
+                </div>
+                <div class="panel scam-results-panel">
+                    <h3>Scam warning-sign check</h3>
+                    <p id="scam-intro">Your results will appear here. This tool looks for common warning signs; it cannot prove whether a message is real or fake.</p>
+                    <div id="scam-results" aria-live="polite"></div>
+                    <div class="notice">Never click a link, pay with gift cards or cryptocurrency, or share a password or one-time code because a message tells you to. Contact the organization using a phone number or website you find independently.</div>
+                </div>
+            </div>
+            <p class="small-note">Prototype note: automated checks can make mistakes. If money or account access is at risk, ask a trusted person or contact the organization through its official channel. Text recognition uses a third-party library downloaded from the internet; the app itself does not send your image to a Broward360 server.</p>
+        </section>
+
+        
+        <section id="digital-safety" class="section digital-safety-section">
+            <div class="section-heading">
+                <p class="eyebrow">TOOL 03 · LEARN DIGITAL SAFETY</p>
+                <h2>Digital Safety Coach</h2>
+                <p>Practice spotting common scams with short examples. Choose the safest next step and learn why it helps.</p>
+            </div>
+
+            <div class="safety-lessons">
+                <article class="panel safety-lesson">
+                    <span class="service-icon">🎭</span>
+                    <h3>Impersonation scams</h3>
+                    <p>A caller says they are from your bank and needs your password to “protect” your account.</p>
+                    <p><strong>Safer move:</strong> Hang up and call the bank using the number on your card or its official website—not a number the caller gives you.</p>
+                </article>
+                <article class="panel safety-lesson">
+                    <span class="service-icon">📦</span>
+                    <h3>Fake delivery notices</h3>
+                    <p>A text says a package is delayed and asks you to pay a small fee through a link.</p>
+                    <p><strong>Safer move:</strong> Don’t tap the link. Check delivery status using the retailer’s app or the carrier’s official website you open yourself.</p>
+                </article>
+                <article class="panel safety-lesson">
+                    <span class="service-icon">▦</span>
+                    <h3>Suspicious QR codes</h3>
+                    <p>A QR code on a random sticker or unexpected message promises a prize or asks you to sign in.</p>
+                    <p><strong>Safer move:</strong> Don’t sign in or enter payment details after scanning an unexpected code. Check where it leads before opening it.</p>
+                </article>
+                <article class="panel safety-lesson">
+                    <span class="service-icon">🖥️</span>
+                    <h3>Tech-support scams</h3>
+                    <p>A pop-up claims your computer is infected and tells you to call a phone number immediately.</p>
+                    <p><strong>Safer move:</strong> Don’t call the pop-up number or grant remote access. Close the page and contact a trusted support provider independently.</p>
+                </article>
+            </div>
+
+            <div class="panel safety-quiz">
+                <p class="eyebrow">QUICK PRACTICE</p>
+                <h3>What should you do?</h3>
+                <p id="safety-question">A text says your delivery is held until you pay a small fee through its link. What is the safest next step?</p>
+                <div class="safety-options" role="group" aria-label="Choose the safest next step">
+                    <button class="safety-option" type="button" data-answer="wrong">Tap the link because the fee is small.</button>
+                    <button class="safety-option" type="button" data-answer="right">Check the order through the retailer or carrier’s official app/site.</button>
+                    <button class="safety-option" type="button" data-answer="wrong">Reply with my address to confirm delivery.</button>
+                </div>
+                <p id="safety-feedback" class="form-message" role="status">Choose an answer to see why it is safer or riskier.</p>
+                <button id="next-safety-question" class="secondary-button" type="button">Try another example</button>
+            </div>
+            <p class="small-note">These examples teach general safety habits and are not a guarantee that a message is safe or fraudulent. If you think you have been scammed, contact your bank or account provider through a trusted channel promptly.</p>
+        </section>
+
+        
+        <section id="letter-explainer" class="section letter-section">
+            <div class="section-heading">
+                <p class="eyebrow">TOOL 04 · PLAIN-LANGUAGE ACCESS</p>
+                <h2>Make a confusing letter easier to understand.</h2>
+                <p>Upload a photo or paste text from a utility bill, government notice, or service letter. Broward360 will extract text and highlight possible dates, amounts, and action items.</p>
+            </div>
+            <div class="letter-layout">
+                <div class="panel">
+                    <label for="letter-image">Option 1: Upload a photo or screenshot</label>
+                    <input id="letter-image" type="file" accept="image/*">
+                    <p class="small-note">Use a clear, well-lit image. Crop or cover your name, address, account number, barcode, and other personal information first.</p>
+                    <div id="letter-image-preview-wrap" class="image-preview-wrap" hidden>
+                        <img id="letter-image-preview" alt="Preview of the selected document image">
+                    </div>
+                    <button id="read-letter-button" class="secondary-button" type="button" disabled>Extract text from photo</button>
+                    <p id="letter-ocr-status" class="form-message" role="status"></p>
+                    <label for="letter-text">Option 2: Paste or correct the text</label>
+                    <textarea id="letter-text" rows="8" maxlength="12000" placeholder="Paste the letter text here, after removing private details."></textarea>
+                    <button id="explain-letter-button" class="primary-button" type="button">Find key information</button>
+                </div>
+                <div class="panel letter-results-panel" aria-live="polite">
+                    <h3>Your letter, simplified</h3>
+                    <p id="letter-intro">Upload a photo or paste text, then select “Find key information.”</p>
+                    <div id="letter-results"></div>
+                </div>
+            </div>
+            <div class="notice">Important: This prototype does not use AI to understand the full meaning of a letter. It uses OCR plus simple JavaScript rules to flag possible dates, amounts, and action-related phrases. Check every result against the original document and contact the organization through independently verified official contact information. It cannot verify authenticity or provide legal, tax, or financial advice.</div>
+            <p class="small-note">OCR uses Tesseract.js, the same text-recognition library as the Scam Checker. The library is downloaded from a third-party CDN, and processing runs in your browser. Broward360 does not upload the image to its own server, but do not use sensitive documents in this prototype.</p>
+        </section>
+
+        <section id="recycle" class="section recycle-section">
+            <div class="section-heading">
+                <p class="eyebrow">TOOL 05 · WASTE LESS</p>
+                <h2>Not sure where an item goes?</h2>
+                <p>Choose an item to see a general tip. Local rules can vary, so check your waste provider's guidance.</p>
+            </div>
+            <div class="recycle-tool panel">
+                <label for="item-choice">Choose an item</label>
+                <select id="item-choice">
+                    <option value="">Select an item…</option>
+                    <option value="plastic">Plastic bottle</option>
+                    <option value="cardboard">Clean cardboard box</option>
+                    <option value="pizza">Greasy pizza box</option>
+                    <option value="bag">Plastic shopping bag</option>
+                    <option value="battery">Household battery</option>
+                    <option value="glass">Glass bottle or jar</option>
+                    <option value="food">Food scraps</option>
+                </select>
+                <div id="recycle-result" class="recycle-result" aria-live="polite">
+                    <span class="result-icon">♻️</span>
+                    <div><h3>Your recycling tip will appear here</h3><p>Select an item above to get started.</p></div>
+                </div>
+                <p class="small-note">These are general tips, not a guarantee that an item is accepted in your specific curbside program.</p>
+            </div>
+        </section>
+
+        <section id="food" class="section food-section">
+            <div class="section-heading">
+                <p class="eyebrow">TOOL 06 · FOOD ACCESS</p>
+                <h2>Everyone deserves access to food.</h2>
+                <p>Use these links to begin finding food assistance. Confirm current hours and eligibility with each organization.</p>
+            </div>
+            <div id="food-list" class="food-grid"></div>
+            <p class="small-note">The directory is a prototype. Verify every listing before relying on it or presenting it as a complete local directory.</p>
+        </section>
+
+        <section class="callout">
+            <div>
+                <p class="eyebrow">A BETTER BROWARD STARTS HERE</p>
+                <h2>Notice a problem. Find an option. Take action.</h2>
+            </div>
+            <a href="#services" class="secondary-button">Back to tools ↑</a>
+        </section>
+    </main>
+
+    <footer>
+        <a class="brand footer-brand" href="#home"><span class="brand-icon">360</span><span>Broward<span class="brand-highlight">360</span></span></a>
+        <p>A student project concept for community support in Broward County, Florida.</p>
+        <p class="footer-small">Not affiliated with or endorsed by Broward County. Not for emergency reporting.</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
