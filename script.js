@@ -242,107 +242,275 @@ loadReports();
 loadFoodResources();
 
 
+// Shared "read text from image" helper used by the Scam Checker and the Letter Explainer.
+// Tesseract.js is only downloaded the first time someone adds an image, and the version is pinned.
+const TESSERACT_URL = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+const TESSERACT_INTEGRITY = "sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F";
+let tesseractLoading = null;
+
+function loadTesseract() {
+    if (window.Tesseract) return Promise.resolve(window.Tesseract);
+    if (tesseractLoading) return tesseractLoading;
+
+    tesseractLoading = new Promise(function(resolve, reject) {
+        const script = document.createElement("script");
+        script.src = TESSERACT_URL;
+        script.integrity = TESSERACT_INTEGRITY;
+        script.crossOrigin = "anonymous";
+        script.onload = function() { resolve(window.Tesseract); };
+        script.onerror = function() {
+            tesseractLoading = null;
+            script.remove();
+            reject(new Error("Tesseract.js could not load"));
+        };
+        document.head.appendChild(script);
+    });
+    return tesseractLoading;
+}
+
+const ocrStageLabels = {
+    "loading tesseract core": "Getting text recognition ready…",
+    "initializing tesseract": "Getting text recognition ready…",
+    "loading language traineddata": "Loading English language data…",
+    "initializing api": "Almost ready…",
+    "recognizing text": "Reading text"
+};
+
+function setupImageTextReader(options) {
+    let currentFile = null;
+    let previewUrl = "";
+    let lastReadText = "";
+
+    function clearImage(message) {
+        currentFile = null;
+        options.input.value = "";
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        previewUrl = "";
+        options.preview.removeAttribute("src");
+        options.previewWrap.hidden = true;
+        options.fileName.textContent = "";
+        options.button.disabled = true;
+        options.progress.hidden = true;
+        options.status.textContent = message || "";
+    }
+
+    function useFile(file) {
+        if (!file) {
+            clearImage();
+            return;
+        }
+        if (!file.type.startsWith("image/")) {
+            clearImage("That file is not an image. Please choose a screenshot or photo (for example PNG or JPG).");
+            return;
+        }
+
+        clearImage();
+        currentFile = file;
+        previewUrl = URL.createObjectURL(file);
+        options.preview.src = previewUrl;
+        options.previewWrap.hidden = false;
+        options.fileName.textContent = file.name || "Pasted image";
+        options.button.disabled = false;
+        options.status.textContent = "Image ready. Select “" + options.button.textContent + "” to copy its words into the box below.";
+        // Start downloading the library now so reading starts faster.
+        loadTesseract().catch(function() {});
+    }
+
+    options.input.addEventListener("change", function() {
+        useFile(options.input.files && options.input.files[0]);
+    });
+
+    options.removeButton.addEventListener("click", function() {
+        clearImage("Image removed.");
+        options.input.focus();
+    });
+
+    // Drag and drop onto the upload area.
+    options.dropZone.addEventListener("dragover", function(event) {
+        event.preventDefault();
+        options.dropZone.classList.add("is-dragging");
+    });
+    options.dropZone.addEventListener("dragleave", function() {
+        options.dropZone.classList.remove("is-dragging");
+    });
+    options.dropZone.addEventListener("drop", function(event) {
+        event.preventDefault();
+        options.dropZone.classList.remove("is-dragging");
+        useFile(event.dataTransfer.files && event.dataTransfer.files[0]);
+    });
+
+    // Pasting a screenshot into the text box sends it to the image reader instead.
+    options.textArea.addEventListener("paste", function(event) {
+        const items = event.clipboardData ? Array.from(event.clipboardData.files) : [];
+        const image = items.find(function(file) { return file.type.startsWith("image/"); });
+        if (!image) return;
+        event.preventDefault();
+        useFile(image);
+        options.box.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+
+    options.button.addEventListener("click", async function() {
+        if (!currentFile) return;
+        const file = currentFile;
+        options.button.disabled = true;
+        options.progress.hidden = false;
+        options.progress.removeAttribute("value");
+        options.status.textContent = "Getting text recognition ready…";
+
+        try {
+            const tesseract = await loadTesseract();
+            const result = await tesseract.recognize(file, "eng", {
+                logger: function(message) {
+                    const label = ocrStageLabels[message.status];
+                    if (!label) return;
+                    if (message.status === "recognizing text") {
+                        const percent = Math.round((message.progress || 0) * 100);
+                        options.progress.value = percent;
+                        options.status.textContent = label + ": " + percent + "%";
+                    } else {
+                        options.status.textContent = label;
+                    }
+                }
+            });
+            if (file !== currentFile) return;
+            const extractedText = (result.data.text || "").trim();
+            if (extractedText) {
+                // Replace the text from the previous image instead of piling new text below it.
+                const currentText = options.textArea.value;
+                if (lastReadText && currentText.includes(lastReadText)) {
+                    options.textArea.value = currentText.replace(lastReadText, function() { return extractedText; });
+                } else {
+                    options.textArea.value = [currentText.trim(), extractedText].filter(Boolean).join("\n\n");
+                }
+                lastReadText = extractedText;
+                if (options.onTextAdded) options.onTextAdded();
+                options.status.textContent = options.successMessage;
+                options.textArea.classList.remove("just-filled");
+                void options.textArea.offsetWidth;
+                options.textArea.classList.add("just-filled");
+                options.textArea.scrollIntoView({ behavior: "smooth", block: "center" });
+                options.textArea.focus({ preventScroll: true });
+            } else {
+                options.status.textContent = "Couldn't find readable text in this image. Try a clearer, closer image, or type the text below.";
+            }
+        } catch (error) {
+            options.status.textContent = window.Tesseract
+                ? "Couldn't read this image. Try a clearer screenshot, or type or paste the text below."
+                : "Text recognition couldn't load (check your internet connection). You can still type or paste the text below.";
+        } finally {
+            options.progress.hidden = true;
+            options.button.disabled = !currentFile;
+        }
+    });
+}
+
 // Scam-checker prototype: OCR runs in the browser, then simple rules flag warning signs.
 // This is educational guidance, not a definitive scam detector.
-const scamImageInput = document.getElementById("scam-image");
-const imagePreviewWrap = document.getElementById("image-preview-wrap");
-const scamImagePreview = document.getElementById("scam-image-preview");
-const readImageButton = document.getElementById("read-image-button");
-const ocrStatus = document.getElementById("ocr-status");
 const scamText = document.getElementById("scam-text");
 const checkScamButton = document.getElementById("check-scam-button");
 const scamResults = document.getElementById("scam-results");
 const scamIntro = document.getElementById("scam-intro");
 
-scamImageInput.addEventListener("change", function() {
-    const file = scamImageInput.files && scamImageInput.files[0];
-    if (!file) {
-        imagePreviewWrap.hidden = true;
-        scamImagePreview.removeAttribute("src");
-        readImageButton.disabled = true;
-        return;
+setupImageTextReader({
+    box: document.getElementById("scam-ocr"),
+    dropZone: document.querySelector("#scam-ocr .drop-zone"),
+    input: document.getElementById("scam-image"),
+    previewWrap: document.getElementById("image-preview-wrap"),
+    preview: document.getElementById("scam-image-preview"),
+    fileName: document.getElementById("scam-image-name"),
+    removeButton: document.getElementById("scam-image-remove"),
+    button: document.getElementById("read-image-button"),
+    progress: document.getElementById("ocr-progress"),
+    status: document.getElementById("ocr-status"),
+    textArea: scamText,
+    successMessage: "Done! The text is now in the message box below. Fix any mistakes, then select “Check warning signs.”",
+    onTextAdded: function() {
+        // Old results belong to the previous message, so clear them.
+        scamResults.replaceChildren();
+        scamIntro.textContent = "New text added. Select “Check warning signs” to check it.";
     }
-
-    if (!file.type.startsWith("image/")) {
-        ocrStatus.textContent = "Please choose an image file.";
-        scamImageInput.value = "";
-        return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = function(event) {
-        scamImagePreview.src = event.target.result;
-        imagePreviewWrap.hidden = false;
-        readImageButton.disabled = false;
-        ocrStatus.textContent = "Image ready. Select “Read text from image” to try text recognition.";
-    };
-    reader.readAsDataURL(file);
 });
 
-readImageButton.addEventListener("click", async function() {
-    const file = scamImageInput.files && scamImageInput.files[0];
-    if (!file) return;
+// Well-known names scammers often copy, with the real website for each.
+const impersonatedBrands = [
+    { name: "paypal", domains: ["paypal.com"] },
+    { name: "amazon", domains: ["amazon.com"] },
+    { name: "apple", domains: ["apple.com", "icloud.com"] },
+    { name: "microsoft", domains: ["microsoft.com", "outlook.com", "live.com"] },
+    { name: "netflix", domains: ["netflix.com"] },
+    { name: "google", domains: ["google.com", "gmail.com"] },
+    { name: "facebook", domains: ["facebook.com", "facebookmail.com"] },
+    { name: "venmo", domains: ["venmo.com"] },
+    { name: "zelle", domains: ["zellepay.com"] },
+    { name: "chase", domains: ["chase.com"] },
+    { name: "wellsfargo", domains: ["wellsfargo.com"] },
+    { name: "bankofamerica", domains: ["bankofamerica.com"] },
+    { name: "usps", domains: ["usps.com"] },
+    { name: "fedex", domains: ["fedex.com"] },
+    { name: "ups", domains: ["ups.com"] },
+    { name: "irs", domains: ["irs.gov"] },
+    { name: "ssa", domains: ["ssa.gov"] }
+];
 
-    if (!window.Tesseract) {
-        ocrStatus.textContent = "Text recognition could not load. You can still type or paste the message below.";
-        return;
-    }
-
-    readImageButton.disabled = true;
-    ocrStatus.textContent = "Reading the image… this can take a little while.";
-    try {
-        const result = await Tesseract.recognize(file, "eng", {
-            logger: function(message) {
-                if (message.status === "recognizing text") {
-                    ocrStatus.textContent = "Reading text: " + Math.round((message.progress || 0) * 100) + "%";
-                }
-            }
+// Find web or email addresses that use a company's name but are not that company's real website,
+// for example "paypal-accounts.com" or "amazon.account-help.net".
+function findLookalikeDomains(text) {
+    const found = [];
+    const domainPattern = /\b(?:[a-z0-9-]+\.)+[a-z]{2,}\b/g;
+    (text.match(domainPattern) || []).forEach(function(domain) {
+        impersonatedBrands.forEach(function(brand) {
+            if (!domain.replace(/-/g, "").includes(brand.name)) return;
+            const isReal = brand.domains.some(function(real) {
+                return domain === real || domain.endsWith("." + real);
+            });
+            if (!isReal && !found.includes(domain)) found.push(domain);
         });
-        const extractedText = result.data.text.trim();
-        if (extractedText) {
-            scamText.value = [scamText.value.trim(), extractedText].filter(Boolean).join("\n\n");
-            ocrStatus.textContent = "Text extracted. Review it for mistakes, then select “Check warning signs.”";
-        } else {
-            ocrStatus.textContent = "Couldn't read much text from this image. Try a clearer screenshot or type the message below.";
-        }
-    } catch (error) {
-        ocrStatus.textContent = "Couldn't read this image. Try a clearer screenshot or type/paste the message below.";
-    } finally {
-        readImageButton.disabled = false;
-    }
-});
+    });
+    return found;
+}
 
 function analyzeScamMessage(message) {
-    const text = message.toLowerCase();
+    // Lowercase and join lines so phrases split across lines (common in screenshots) still match.
+    const text = message.toLowerCase().replace(/[’‘]/g, "'").replace(/\s+/g, " ");
     const checks = [
         {
             label: "Urgency or threats",
-            pattern: /act now|immediately|urgent|final warning|account.{0,20}(suspend|close|locked)|will be (closed|suspended|arrested)|within 24 hours|today only/,
-            explanation: "The message pressures you to act quickly or threatens a consequence. Scammers often try to stop people from checking first."
+            pattern: /act now|immediately|urgent|final (warning|notice)|last chance|as soon as possible|expires? (today|soon)|today only|within \d+ (hours?|days?)|you have (only )?\d+ (hours?|days?)|\b(24|48|72)[- ]?hours?\b|(account|access).{0,40}(suspend|clos|lock|limit|disabl|restrict|deactivat|terminat|frozen)|(permanently|will be) (disabled|deleted|closed|suspended|locked|terminated|arrested)|legal action|lawsuit|arrest|warrant/,
+            explanation: "The message pressures you to act quickly or threatens to close, limit, or lock something. Scammers often try to stop people from checking first."
         },
         {
             label: "Requests for passwords or security codes",
-            pattern: /password|one[- ]time code|verification code|security code|passcode|login code/,
+            pattern: /password|one[- ]time code|verification code|security code|passcode|login code|\bpin\b/,
             explanation: "The message mentions sensitive sign-in information. Do not share passwords or one-time verification codes with someone who contacts you unexpectedly."
         },
         {
+            label: "Asks you to confirm personal or account details",
+            pattern: /(confirm|verify|update|validate|re-?enter|provide) (all of )?(your )?(account|identity|personal|billing|payment|bank|card|information|details|info)|social security number|\bssn\b|bank account number|routing number|card number|date of birth|account details/,
+            explanation: "Real companies rarely ask you to confirm account or personal details through a message. Sign in through the official app or website you already use instead."
+        },
+        {
             label: "Money, gift cards, or cryptocurrency",
-            pattern: /gift card|bitcoin|cryptocurrency|crypto|wire transfer|cash app|zelle|payment required|pay now|send money|processing fee/,
-            explanation: "The message mentions payment methods or payment pressure that can be associated with scams. Verify independently before paying."
+            pattern: /gift card|bitcoin|cryptocurrency|crypto|wire transfer|western union|moneygram|money order|cash app|zelle|payment (is )?(needed|required|of)|pay now|send money|send (me|us) \$|(processing|release|transfer|customs|upfront|small|clearance|handling) fee|fee (is )?(needed|required)/,
+            explanation: "The message asks for a payment or mentions payment methods that are hard to get back. Verify independently before paying anything."
         },
         {
-            label: "Suspicious prize or unexpected reward",
-            pattern: /you (have )?won|winner|claim your prize|free gift|lottery|inheritance|reward waiting/,
-            explanation: "Unexpected prizes, winnings, or inheritances can be used to lure people into sharing information or paying fees."
+            label: "Unexpected money, prize, or reward",
+            pattern: /you (have )?won|winner|claim your (prize|reward|funds)|free gift|lottery|inheritance|reward waiting|unclaimed|beneficiary|next of kin|\bmillion\b|\$\s?\d{1,3}(,\d{3}){2,}|transfer .{0,30}to you|gesture of (gratitude|appreciation)|(funds|money|account).{0,30}(frozen|blocked|on hold)|\bprince\b|share of the (funds|money)/,
+            explanation: "Large sums, frozen funds, or rewards offered by a stranger are a classic lure. These \"advance-fee\" scams ask for a small payment now in exchange for money that never arrives."
         },
         {
-            label: "Link or attachment pressure",
-            pattern: /click (here|the link|below)|open the attachment|verify your account|update your payment|confirm your details/,
-            explanation: "The message asks you to click, open, verify, or update something. Instead, navigate to the official site yourself or call a known official number."
+            label: "Link or button pressure",
+            pattern: /click(ing)? (here|the link|the button|below|on (the|this) link)|(follow|use) (the|this) link|link below|button below|open the attachment|log ?in (here|now|below)|verify your account|update your payment|confirm your (details|information|identity)|secure(d)? (server|link|portal)/,
+            explanation: "The message asks you to click a link or button. Instead, type the official website address yourself or call a known official number."
+        },
+        {
+            label: "Generic greeting",
+            pattern: /dear (sir|madam|sir\/madam|friend|beneficiary|customer|valued customer|user|client|member|account holder)\b|dear [a-z]+ (customer|user|member|client)\b/,
+            explanation: "Companies you do business with usually use your name. Greetings like \"Dear Sir\" or \"Dear customer\" are common in mass scam messages."
         },
         {
             label: "Impersonation or unusual request",
-            pattern: /pretend|impersonat|this is (the )?(irs|social security|police)|gift cards for my boss|keep this (secret|confidential)|don't tell anyone/,
+            pattern: /pretend|impersonat|this is (the )?(irs|social security|police)|gift cards for my boss|keep this (secret|confidential)|don't tell anyone|do not tell anyone/,
             explanation: "Scammers may pretend to be an agency, authority, family member, or employer, or ask you to keep a request secret."
         }
     ];
@@ -350,6 +518,14 @@ function analyzeScamMessage(message) {
     const matches = checks.filter(function(check) {
         return check.pattern.test(text);
     });
+
+    const lookalikes = findLookalikeDomains(text);
+    if (lookalikes.length > 0) {
+        matches.push({
+            label: "Look-alike website or email address",
+            explanation: "This address uses a company's name but is not that company's real website: " + lookalikes.join(", ") + ". Scammers set up addresses like this to look official."
+        });
+    }
 
     let level;
     let summary;
@@ -457,8 +633,9 @@ function renderSafetyQuestion() {
         button.textContent = answer.text;
         button.addEventListener("click", function() {
             const feedback = document.getElementById("safety-feedback");
-            feedback.textContent = (answer.correct ? "Correct! " : "Not the safest choice. ") + answer.feedback;
-            feedback.className = "form-message " + (answer.correct ? "safety-correct" : "safety-caution");
+            feedback.textContent = (answer.correct ? "✓ " : "✗ Not the safest choice. ") + answer.feedback;
+            feedback.className = "form-message " + (answer.correct ? "safety-correct" : "safety-wrong");
+            button.classList.add(answer.correct ? "safety-correct" : "safety-wrong");
             optionsContainer.querySelectorAll("button").forEach(function(option) {
                 option.disabled = true;
             });
@@ -477,66 +654,27 @@ renderSafetyQuestion();
 
 
 // Letter & bill explainer prototype: Tesseract.js OCR plus simple rules, not generative AI.
-const letterImageInput = document.getElementById("letter-image");
-const letterPreviewWrap = document.getElementById("letter-image-preview-wrap");
-const letterImagePreview = document.getElementById("letter-image-preview");
-const readLetterButton = document.getElementById("read-letter-button");
-const letterOcrStatus = document.getElementById("letter-ocr-status");
 const letterText = document.getElementById("letter-text");
 const explainLetterButton = document.getElementById("explain-letter-button");
 const letterIntro = document.getElementById("letter-intro");
 const letterResults = document.getElementById("letter-results");
 
-letterImageInput.addEventListener("change", function() {
-    const file = letterImageInput.files && letterImageInput.files[0];
-    if (!file) {
-        letterPreviewWrap.hidden = true;
-        readLetterButton.disabled = true;
-        return;
-    }
-    if (!file.type.startsWith("image/")) {
-        letterOcrStatus.textContent = "Please choose an image file.";
-        letterImageInput.value = "";
-        return;
-    }
-    const reader = new FileReader();
-    reader.onload = function() {
-        letterImagePreview.src = reader.result;
-        letterPreviewWrap.hidden = false;
-        readLetterButton.disabled = false;
-        letterOcrStatus.textContent = "Image ready. Select “Extract text from photo.”";
-    };
-    reader.readAsDataURL(file);
-});
-
-readLetterButton.addEventListener("click", async function() {
-    const file = letterImageInput.files && letterImageInput.files[0];
-    if (!file) return;
-    if (!window.Tesseract) {
-        letterOcrStatus.textContent = "Text recognition could not load. You can paste or type the text instead.";
-        return;
-    }
-    readLetterButton.disabled = true;
-    letterOcrStatus.textContent = "Extracting text… this can take a little while.";
-    try {
-        const result = await Tesseract.recognize(file, "eng", {
-            logger: function(message) {
-                if (message.status === "recognizing text") {
-                    letterOcrStatus.textContent = "Reading text: " + Math.round((message.progress || 0) * 100) + "%";
-                }
-            }
-        });
-        const extractedText = (result.data.text || "").trim();
-        if (extractedText) {
-            letterText.value = [letterText.value.trim(), extractedText].filter(Boolean).join("\n\n");
-            letterOcrStatus.textContent = "Text extracted. Review and correct OCR mistakes before checking key information.";
-        } else {
-            letterOcrStatus.textContent = "No readable text found. Try a clearer photo or paste the text manually.";
-        }
-    } catch (error) {
-        letterOcrStatus.textContent = "Could not read this image. Try a clearer photo or paste the text manually.";
-    } finally {
-        readLetterButton.disabled = false;
+setupImageTextReader({
+    box: document.getElementById("letter-ocr"),
+    dropZone: document.querySelector("#letter-ocr .drop-zone"),
+    input: document.getElementById("letter-image"),
+    previewWrap: document.getElementById("letter-image-preview-wrap"),
+    preview: document.getElementById("letter-image-preview"),
+    fileName: document.getElementById("letter-image-name"),
+    removeButton: document.getElementById("letter-image-remove"),
+    button: document.getElementById("read-letter-button"),
+    progress: document.getElementById("letter-ocr-progress"),
+    status: document.getElementById("letter-ocr-status"),
+    textArea: letterText,
+    successMessage: "Done! The text is now in the box below. Fix any recognition mistakes, then select “Find key information.”",
+    onTextAdded: function() {
+        letterResults.replaceChildren();
+        letterIntro.textContent = "New text added. Select “Find key information” to check it.";
     }
 });
 
@@ -593,3 +731,46 @@ explainLetterButton.addEventListener("click", function() {
     addLetterResultSection(letterResults, "Possible amounts", findings.amounts, "No money amounts were detected.");
     addLetterResultSection(letterResults, "Lines that may describe an action", findings.actionLines, "No obvious action-related phrases were detected. Review the entire letter carefully.");
 });
+
+// ===== Page switching =====
+// Each tool section is its own "page". The address bar hash (like #recycle) picks which one shows,
+// so links, the Back button, and bookmarks all work without a server.
+const toolPages = document.querySelectorAll("[data-page]");
+const homeViews = document.querySelectorAll(".home-view");
+const navLinks = document.querySelectorAll("nav a");
+const homeTitle = document.title;
+
+function showPage() {
+    const id = window.location.hash.slice(1);
+    const page = Array.from(toolPages).find(section => section.id === id);
+
+    toolPages.forEach(section => { section.hidden = section !== page; });
+    homeViews.forEach(view => { view.hidden = Boolean(page); });
+    navLinks.forEach(link => {
+        if (page && link.getAttribute("href") === "#" + id) {
+            link.setAttribute("aria-current", "page");
+        } else {
+            link.removeAttribute("aria-current");
+        }
+    });
+
+    if (page) {
+        document.title = page.querySelector("h2").textContent + " | Broward360";
+        window.scrollTo({ top: 0, behavior: "instant" });
+        // Move keyboard and screen reader focus to the new page's heading.
+        const heading = page.querySelector("h2");
+        heading.setAttribute("tabindex", "-1");
+        heading.focus({ preventScroll: true });
+    } else {
+        document.title = homeTitle;
+        const target = id && document.getElementById(id);
+        if (target && target.classList.contains("home-view")) {
+            target.scrollIntoView({ behavior: "instant" });
+        } else {
+            window.scrollTo({ top: 0, behavior: "instant" });
+        }
+    }
+}
+
+window.addEventListener("hashchange", showPage);
+showPage();
